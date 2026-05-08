@@ -17,8 +17,8 @@ sudo apt install -y python3-pip python3-venv sshpass qemu-utils curl
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/nutanixed/web-images.git
-cd web-images
+git clone https://github.com/nutanixed/ahv-image-exporter.git
+cd ahv-image-exporter
 ```
 
 ### Setup Virtual Environment
@@ -49,7 +49,7 @@ To ensure the application starts automatically on boot and restarts if it fails,
 
 ### Create the Service File
 ```bash
-sudo nano /etc/systemd/system/web-images.service
+sudo nano /etc/systemd/system/ahv-image-exporter.service
 ```
 
 ### Add the following content:
@@ -62,9 +62,9 @@ After=network.target
 [Service]
 User=nutanix
 Group=nutanix
-WorkingDirectory=/home/nutanix/web-images
-Environment="PATH=/home/nutanix/web-images/.venv/bin"
-ExecStart=/home/nutanix/web-images/.venv/bin/gunicorn --workers 4 --bind 0.0.0.0:5000 --timeout 300 app:app
+WorkingDirectory=/home/nutanix/ahv-image-exporter
+Environment="PATH=/home/nutanix/ahv-image-exporter/.venv/bin"
+ExecStart=/home/nutanix/ahv-image-exporter/.venv/bin/gunicorn --workers 4 --bind 0.0.0.0:5000 --timeout 300 app:app
 
 [Install]
 WantedBy=multi-user.target
@@ -73,13 +73,13 @@ WantedBy=multi-user.target
 ### Enable and Start the Service
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable web-images
-sudo systemctl start web-images
+sudo systemctl enable ahv-image-exporter
+sudo systemctl start ahv-image-exporter
 ```
 
 ### Check Status
 ```bash
-sudo systemctl status web-images
+sudo systemctl status ahv-image-exporter
 ```
 
 ## 5. Reverse Proxy with Nginx (Optional but Recommended)
@@ -92,7 +92,7 @@ sudo apt install -y nginx
 
 ### Configure Nginx
 ```bash
-sudo nano /etc/nginx/sites-available/web-images
+sudo nano /etc/nginx/sites-available/ahv-image-exporter
 ```
 
 ```nginx
@@ -112,7 +112,7 @@ server {
 
 ### Enable the Site
 ```bash
-sudo ln -s /etc/nginx/sites-available/web-images /etc/nginx/sites-enabled
+sudo ln -s /etc/nginx/sites-available/ahv-image-exporter /etc/nginx/sites-enabled
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -121,7 +121,7 @@ sudo systemctl restart nginx
 ### Monitoring Logs
 ```bash
 # Systemd logs
-journalctl -u web-images -f
+journalctl -u ahv-image-exporter -f
 
 # Nginx logs
 tail -f /var/log/nginx/access.log
@@ -130,5 +130,5 @@ tail -f /var/log/nginx/error.log
 
 ### Restarting the App
 ```bash
-sudo systemctl restart web-images
+sudo systemctl restart ahv-image-exporter
 ```

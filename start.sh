@@ -10,7 +10,7 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}🚀 Starting Image Exporter Web UI...${NC}"
 
 # Change to the application directory
-cd /home/nutanix/web-images
+cd /home/nutanix/ahv-image-exporter
 
 # Check if app.py exists
 if [ ! -f "app.py" ]; then

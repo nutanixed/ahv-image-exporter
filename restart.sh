@@ -2,9 +2,9 @@
 # Image Exporter Robust Restart Script
 # This script ensures only ONE instance of the dashboard and watchdog runs.
 
-APP_DIR="/home/nutanix/web-images"
-PID_FILE="/tmp/web-images-watchdog.pid"
-LOG_FILE="/tmp/web-images.log"
+APP_DIR="/home/nutanix/ahv-image-exporter"
+PID_FILE="/tmp/ahv-image-exporter-watchdog.pid"
+LOG_FILE="/tmp/ahv-image-exporter.log"
 PORT=5000
 
 echo "🔄 Initializing Robust Restart for Image Exporter..."
@@ -45,8 +45,8 @@ touch "$LOG_FILE"
         echo "[$(date)] Starting Gunicorn..." >> "'$LOG_FILE'"
         
         gunicorn --bind 0.0.0.0:'$PORT' --workers 4 --timeout 300 \
-            --access-logfile /tmp/web-images-access.log \
-            --error-logfile /tmp/web-images-error.log \
+            --access-logfile /tmp/ahv-image-exporter-access.log
+            --error-logfile /tmp/ahv-image-exporter-error.log
             app:app >> "'$LOG_FILE'" 2>&1
             
         EXIT_CODE=$?
