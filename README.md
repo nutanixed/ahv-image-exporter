@@ -74,3 +74,8 @@ The script will:
 python app.py
 ```
 Access the UI at `http://localhost:5000`.
+
+---
+
+## Deployment
+For detailed production deployment instructions (Systemd, Nginx, etc.), see [DEPLOYMENT.md](./DEPLOYMENT.md).
