@@ -51,29 +51,12 @@ The script will:
 
 ## Web Application Usage
 
-### Installation
-1.  Install Python dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  Configure your environment in `.env`:
-    ```ini
-    SECRET_KEY="your-secret-key"
-    LDAP_SERVER="ldap://your-ldap-server"
-    LDAP_ADMIN_DN="cn=admin,dc=example,dc=com"
-    LDAP_ADMIN_PASSWORD="password"
-    REMOTE_HOST="cluster-ip"
-    REMOTE_USER="admin"
-    REMOTE_PASS="password"
-    CLUSTER_IP="cluster-nfs-ip"
-    LOCAL_NFS_MOUNT="/path/to/mount"
-    ```
+For comprehensive instructions on how to install and deploy the web-based image exporting application (including Systemd and Nginx configuration), please refer to the **[DEPLOYMENT.md](./DEPLOYMENT.md)** guide.
 
-### Running the App
-```bash
-python app.py
-```
-Access the UI at `http://localhost:5000`.
+### Quick Start
+1.  **Install dependencies**: `pip install -r requirements.txt`
+2.  **Configure Environment**: Create a `.env` file (see [DEPLOYMENT.md](./DEPLOYMENT.md) for details).
+3.  **Run**: `python app.py`
 
 ---
 
