@@ -19,7 +19,7 @@ fi
 
 # 2. Aggressive cleanup of any orphaned processes
 echo "🛑 Cleaning up all related processes..."
-pkill -9 -f "web-images.*loop" 2>/dev/null || true
+pkill -9 -f "ahv-image-exporter.*loop" 2>/dev/null || true
 pkill -9 -f "gunicorn.*app:app" 2>/dev/null || true
 
 # 3. Ensure the port is actually free
@@ -45,8 +45,8 @@ touch "$LOG_FILE"
         echo "[$(date)] Starting Gunicorn..." >> "'$LOG_FILE'"
         
         gunicorn --bind 0.0.0.0:'$PORT' --workers 4 --timeout 300 \
-            --access-logfile /tmp/ahv-image-exporter-access.log
-            --error-logfile /tmp/ahv-image-exporter-error.log
+            --access-logfile /tmp/ahv-image-exporter-access.log \
+            --error-logfile /tmp/ahv-image-exporter-error.log \
             app:app >> "'$LOG_FILE'" 2>&1
             
         EXIT_CODE=$?
