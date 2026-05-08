@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Management</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .modal-open { overflow: hidden; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-900">
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-3">
+                    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="h-8 w-auto">
+                    <span class="text-xl font-bold tracking-tight text-slate-900">IMAGE <span class="text-blue-600 font-extrabold">EXPORTER</span></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="/logout" class="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-red-600 transition-colors bg-slate-100 hover:bg-red-50 px-4 py-2 rounded-lg">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Toast Notification Area -->
+        <div id="toast-container" class="fixed top-20 right-4 z-50 pointer-events-none flex flex-col gap-3 max-w-sm w-full"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left Column: Form -->
+            <div class="lg:col-span-4">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden sticky top-24">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50/50">
+                        <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fas fa-plus-circle text-blue-600"></i> Export AHV VM
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-1">Convert a VM to QCOW2 and export to NFS.</p>
+                    </div>
+                    <div class="p-6">
+                        <form id="export-form" class="space-y-4">
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500">Select VMs</label>
+                                    <button type="button" id="select-all-btn" onclick="toggleSelectAll()" class="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-tight hidden">Select All</button>
+                                </div>
+                                <!-- Search Input -->
+                                <div class="relative mb-2">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                        <i class="fas fa-search text-xs"></i>
+                                    </span>
+                                    <input type="text" id="vm-search" oninput="filterVMs()" placeholder="Search VMs..." 
+                                        class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-xs">
+                                </div>
+                                <div id="vm-checkbox-list" class="w-full max-h-80 overflow-y-auto bg-slate-50 border border-slate-200 rounded-xl p-2 space-y-2 transition-all">
+                                    <div class="text-slate-400 text-xs italic p-2 flex items-center gap-2">
+                                        <i class="fas fa-circle-notch fa-spin"></i> Loading VMs...
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Global image name prefix (Optional) -->
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Global Prefix (Optional)</label>
+                                <input type="text" id="global-prefix" name="global_prefix" placeholder="Prefix for all images"
+                                    class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-sm">
+                                <p class="text-[10px] text-slate-400 mt-1">If set, will be added to each VM's image name.</p>
+                            </div>
+                            <button type="submit" id="submit-btn" disabled
+                                class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-100 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98]">
+                                <i class="fas fa-rocket"></i> Start Export
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Table -->
+            <div class="lg:col-span-8">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fas fa-tasks text-blue-600"></i> Export Tasks
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1">Status of current and historical exports.</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <!-- Search Tasks -->
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                    <i class="fas fa-search text-xs"></i>
+                                </span>
+                                <input type="text" id="task-search" oninput="filterTasks()" placeholder="Search images..." 
+                                    class="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-xs w-48 sm:w-64">
+                            </div>
+                            <button onclick="refreshTasks()" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                                <i class="fas fa-sync-alt" id="refresh-icon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/50 border-b border-slate-100">
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Image Name</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Created</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Progress</th>
+                                    <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-tbody" class="divide-y divide-slate-100">
+                                <tr>
+                                    <td colspan="4" class="px-6 py-8 text-center text-slate-400 text-sm italic">No tasks found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancel-modal" class="fixed inset-0 z-[60] hidden overflow-y-auto">
+        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <!-- Overlay -->
+            <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+            
+            <!-- Modal Content -->
+            <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-slate-200">
+                <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-amber-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-exclamation-triangle text-amber-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                            <h3 class="text-lg font-bold leading-6 text-slate-900" id="modal-title">Cancel Export</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-slate-500">Are you sure you want to cancel the export for <span id="cancel-vm-name" class="font-bold text-slate-700"></span>? This will stop the process and delete the partial file.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 gap-2">
+                    <button type="button" id="modal-confirm-btn" onclick="confirmCancel()" class="inline-flex w-full justify-center rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-amber-700 sm:w-auto transition-all active:scale-95">
+                        Yes, Cancel Export
+                    </button>
+                    <button type="button" onclick="closeModal()" class="mt-3 inline-flex w-full justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:mt-0 sm:w-auto transition-all">
+                        Keep Running
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const exportForm = document.getElementById('export-form');
+        const vmCheckboxList = document.getElementById('vm-checkbox-list');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const refreshIcon = document.getElementById('refresh-icon');
+        const cancelModal = document.getElementById('cancel-modal');
+        let currentlyCancelling = null;
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            
+            toast.className = `pointer-events-auto flex items-center p-4 rounded-xl shadow-2xl text-white ${bgColor} transform transition-all duration-300 translate-y-[-20px] opacity-0`;
+            toast.innerHTML = `
+                <i class="fas ${icon} mr-3 text-lg"></i>
+                <div class="flex-1 text-sm font-semibold">${message}</div>
+                <button class="ml-4 text-white/70 hover:text-white"><i class="fas fa-times"></i></button>
+            `;
+            
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-y-[-20px]', 'opacity-0'));
+            const remove = () => {
+                toast.classList.add('translate-y-[-20px]', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            };
+            toast.querySelector('button').onclick = remove;
+            setTimeout(remove, 4000);
+        }
+
+        async function fetchVMs() {
+            try {
+                const res = await fetch('api/vms');
+                const data = await res.json();
+                if (data.vms) {
+                    if (data.vms.length > 0) {
+                        vmCheckboxList.innerHTML = data.vms.map(vm => `
+                            <div class="vm-item flex flex-col gap-1 p-3 bg-white/50 rounded-xl border border-transparent hover:border-blue-100 transition-all group" data-vm-name="${vm}">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <div class="relative flex items-center justify-center">
+                                        <input type="checkbox" name="vm_names" value="${vm}" onchange="toggleVMInput('${vm}')" 
+                                            class="peer absolute opacity-0 w-5 h-5 cursor-pointer z-10">
+                                        <div class="w-5 h-5 border-2 border-slate-300 rounded-full peer-checked:bg-blue-600 peer-checked:border-blue-600 transition-all flex items-center justify-center">
+                                            <i class="fas fa-check text-[10px] text-white opacity-0 peer-checked:opacity-100 transition-opacity"></i>
+                                        </div>
+                                    </div>
+                                    <span class="text-sm font-bold text-slate-700 group-hover:text-slate-900">${vm}</span>
+                                </label>
+                                <div class="pl-8 overflow-hidden transition-all max-h-0 duration-300" id="input-container-${vm}">
+                                    <input type="text" id="custom-name-${vm}" placeholder="Image name for ${vm}" 
+                                        class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all outline-none text-xs">
+                                </div>
+                            </div>
+                        `).join('');
+                        selectAllBtn.classList.remove('hidden');
+                    } else {
+                        vmCheckboxList.innerHTML = '<div class="text-slate-400 text-xs italic p-2">No VMs found.</div>';
+                    }
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                showToast('Failed to fetch VM list', 'error');
+            }
+        }
+
+        function filterVMs() {
+            const query = document.getElementById('vm-search').value.toLowerCase();
+            const items = vmCheckboxList.querySelectorAll('.vm-item');
+            items.forEach(item => {
+                const name = item.getAttribute('data-vm-name').toLowerCase();
+                if (name.includes(query)) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+            
+            // Update Select All button text
+            const visibleItems = Array.from(vmCheckboxList.querySelectorAll('.vm-item:not(.hidden)'));
+            const checkboxes = visibleItems.map(item => item.querySelector('input[type="checkbox"]'));
+            if (checkboxes.length > 0) {
+                const allChecked = checkboxes.every(cb => cb.checked);
+                selectAllBtn.textContent = allChecked ? 'Deselect Visible' : 'Select Visible';
+            }
+        }
+
+        function filterTasks() {
+            const query = document.getElementById('task-search').value.toLowerCase();
+            const rows = document.querySelectorAll('#tasks-tbody tr');
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                // Skip the "No tasks found" or "No matches found" row if it's the only one
+                if (row.cells.length === 1 && row.cells[0].colSpan >= 4) {
+                    if (query === "") {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                    return;
+                }
+
+                const imageNameCell = row.querySelector('td:first-child');
+                if (imageNameCell) {
+                    const imageName = imageNameCell.textContent.toLowerCase();
+                    if (imageName.includes(query)) {
+                        row.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                }
+            });
+
+            // Handle case where all results are filtered out
+            const tbody = document.getElementById('tasks-tbody');
+            const noMatchRowId = 'no-match-row';
+            let noMatchRow = document.getElementById(noMatchRowId);
+
+            if (visibleCount === 0 && query !== "") {
+                if (!noMatchRow) {
+                    noMatchRow = document.createElement('tr');
+                    noMatchRow.id = noMatchRowId;
+                    noMatchRow.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-slate-400 text-sm italic">No images matching "${query}"</td>`;
+                    tbody.appendChild(noMatchRow);
+                } else {
+                    noMatchRow.innerHTML = `<td colspan="5" class="px-6 py-8 text-center text-slate-400 text-sm italic">No images matching "${query}"</td>`;
+                    noMatchRow.classList.remove('hidden');
+                }
+            } else if (noMatchRow) {
+                noMatchRow.classList.add('hidden');
+            }
+        }
+
+        function toggleVMInput(vm) {
+            const checkbox = document.querySelector(`input[value="${vm}"]`);
+            const container = document.getElementById(`input-container-${vm}`);
+            if (checkbox.checked) {
+                container.classList.remove('max-h-0');
+                container.classList.add('max-h-20', 'mt-1');
+            } else {
+                container.classList.add('max-h-0');
+                container.classList.remove('max-h-20', 'mt-1');
+            }
+        }
+
+        function toggleSelectAll() {
+            // Only select visible checkboxes
+            const visibleItems = Array.from(vmCheckboxList.querySelectorAll('.vm-item:not(.hidden)'));
+            const checkboxes = visibleItems.map(item => item.querySelector('input[type="checkbox"]'));
+            
+            if (checkboxes.length === 0) return;
+
+            const allChecked = checkboxes.every(cb => cb.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                const event = new Event('change');
+                cb.dispatchEvent(event);
+            });
+            selectAllBtn.textContent = !allChecked ? 'Deselect Visible' : 'Select Visible';
+        }
+
+        async function refreshTasks() {
+            refreshIcon.classList.add('fa-spin');
+            try {
+                const res = await fetch('api/tasks');
+                const data = await res.json();
+                const tbody = document.getElementById('tasks-tbody');
+                
+                if (data.tasks && data.tasks.length > 0) {
+                    tbody.innerHTML = data.tasks.sort((a,b) => a.name.localeCompare(b.name)).map(t => `
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            <td class="px-6 py-4 text-sm font-medium text-slate-900">${t.name}</td>
+                            <td class="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">${t.created_at}</td>
+                            <td class="px-6 py-4">
+                                ${t.running ? 
+                                    `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><i class="fas fa-sync-alt fa-spin mr-1"></i> Running</span>` : 
+                                    (t.status === 'CANCELLED' ?
+                                        `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800"><i class="fas fa-ban mr-1"></i> Cancelled</span>` :
+                                        `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fas fa-check-circle mr-1"></i> Finished</span>`)
+                                }
+                            </td>
+                            <td class="px-6 py-4 text-right text-xs font-mono text-slate-500">${t.status === 'CANCELLED' ? '---' : t.status}</td>
+                            <td class="px-6 py-4 text-right">
+                                ${t.running ? `
+                                <button onclick="cancelExport('${t.name}')" class="text-slate-400 hover:text-amber-600 p-1.5 hover:bg-amber-50 rounded-md transition-all" title="Cancel">
+                                    <i class="fas fa-stop-circle"></i>
+                                </button>` : ''}
+                                <button onclick="renameImage('${t.name}')" class="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-blue-50 rounded-md transition-all" title="Rename">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteImage('${t.name}')" class="text-slate-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-md transition-all ml-1" title="Delete">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 text-sm italic">No tasks found.</td></tr>';
+                }
+                filterTasks();
+            } catch (err) {
+                console.error('Refresh error:', err);
+            } finally {
+                setTimeout(() => refreshIcon.classList.remove('fa-spin'), 500);
+            }
+        }
+
+        exportForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const selectedCheckboxes = vmCheckboxList.querySelectorAll('input[name="vm_names"]:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                showToast('Please select at least one VM', 'error');
+                return;
+            }
+
+            const globalPrefix = document.getElementById('global-prefix').value;
+            const exports = Array.from(selectedCheckboxes).map(cb => {
+                const vm_name = cb.value;
+                const custom_name = document.getElementById(`custom-name-${vm_name}`).value;
+                return { vm_name, custom_name };
+            });
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Starting ${exports.length} Exports...`;
+            
+            try {
+                const res = await fetch('api/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exports, global_prefix: globalPrefix })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(`Successfully started ${data.started.length} conversions`);
+                    if (data.errors && data.errors.length > 0) {
+                        data.errors.forEach(err => showToast(`Error for ${err.vm}: ${err.error}`, 'error'));
+                    }
+                    exportForm.reset();
+                    // Reset all inputs
+                    const checkboxes = vmCheckboxList.querySelectorAll('input[type="checkbox"]');
+                    checkboxes.forEach(cb => {
+                        cb.checked = false;
+                        toggleVMInput(cb.value);
+                    });
+                    selectAllBtn.textContent = 'Select All';
+                    
+                    refreshTasks();
+                } else {
+                    showToast(data.error || 'Failed to start conversion', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-rocket"></i> Start Export';
+            }
+        };
+
+        async function renameImage(oldName) {
+            const newName = prompt(`Rename image "${oldName}" to:`, oldName);
+            if (!newName || newName === oldName) return;
+
+            try {
+                const res = await fetch('api/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_name: oldName, new_name: newName })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Image renamed successfully');
+                    refreshTasks();
+                } else {
+                    showToast(data.error || 'Failed to rename image', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+        
+        async function deleteImage(name) {
+            if (!confirm(`Are you sure you want to delete "${name}"? This will stop any running conversion for this image.`)) return;
+
+            try {
+                const res = await fetch('api/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Image deleted successfully');
+                    refreshTasks();
+                } else {
+                    showToast(data.error || 'Failed to delete image', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            }
+        }
+
+        async function cancelExport(name) {
+            currentlyCancelling = name;
+            document.getElementById('cancel-vm-name').textContent = name;
+            cancelModal.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal() {
+            cancelModal.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+            currentlyCancelling = null;
+        }
+
+        async function confirmCancel() {
+            if (!currentlyCancelling) return;
+            const name = currentlyCancelling;
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const originalContent = confirmBtn.innerHTML;
+            
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Cancelling...';
+
+            try {
+                const res = await fetch('api/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast('Export cancelled successfully');
+                    closeModal();
+                    refreshTasks();
+                } else {
+                    showToast(data.error || 'Failed to cancel export', 'error');
+                }
+            } catch (err) {
+                showToast('Connection error', 'error');
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalContent;
+            }
+        }
+
+        // Initial loads
+        fetchVMs();
+        refreshTasks();
+        // Periodically refresh tasks every 10 seconds (increased from 5 to prevent UI loops)
+        setInterval(refreshTasks, 10000);
+    </script>
+</body>
+</html>
